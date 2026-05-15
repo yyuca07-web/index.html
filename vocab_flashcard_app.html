@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>영단어 플래시카드</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+      background: #f5f5f7;
+      color: #222;
+    }
+
+    .app {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    input, textarea, select, button {
+      font: inherit;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 11px 12px;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 170px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 13px;
+      background: #222;
+      color: white;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button.secondary {
+      background: #e9e9ee;
+      color: #222;
+    }
+
+    button.danger {
+      background: #c94040;
+    }
+
+    button.good {
+      background: #2f7d46;
+    }
+
+    button.bad {
+      background: #b44a2f;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .card-area {
+      display: none;
+    }
+
+    .card-area.active {
+      display: block;
+    }
+
+    .card-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: #555;
+      font-size: 14px;
+    }
+
+    .flashcard {
+      min-height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #ffffff, #f0f0f7);
+      box-shadow: inset 0 0 0 1px #eee, 0 14px 28px rgba(0, 0, 0, 0.09);
+      padding: 24px;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .flashcard .word {
+      font-size: clamp(34px, 8vw, 64px);
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .flashcard .hint {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #777;
+      font-weight: 500;
+    }
+
+    .card-controls {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .saved-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .saved-item {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 14px;
+      background: #fafafa;
+    }
+
+    .saved-title {
+      font-weight: 700;
+    }
+
+    .wrong-box {
+      white-space: pre-wrap;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 54px;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .notice {
+      margin-top: 10px;
+      color: #555;
+      font-size: 14px;
+    }
+
+    @media (max-width: 720px) {
+      .grid, .card-controls {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .saved-item {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>영단어 플래시카드</h1>
+        <div class="small">영단어 / 한글뜻 형식으로 입력하고 저장해서 복습하세요.</div>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label for="deckName">단어장 이름</label>
+          <input id="deckName" placeholder="예: 워드마스터 DAY 1" />
+        </div>
+        <div>
+          <label for="frontMode">처음 보여줄 면</label>
+          <select id="frontMode">
+            <option value="en">영어 먼저 보기</option>
+            <option value="ko">한글 먼저 보기</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <label for="wordInput">단어 입력</label>
+        <textarea id="wordInput" placeholder="apple / 사과&#10;achieve / 성취하다&#10;important / 중요한"></textarea>
+        <div class="notice">한 줄에 하나씩 입력하세요. 구분자는 / 또는 , 또는 탭을 사용할 수 있어요.</div>
+      </div>
+
+      <div class="buttons">
+        <button id="makeBtn">카드 만들기</button>
+        <button id="saveBtn" class="secondary">현재 단어장 저장</button>
+        <button id="clearBtn" class="secondary">입력창 비우기</button>
+      </div>
+    </section>
+
+    <section id="cardArea" class="panel card-area">
+      <div class="card-status">
+        <span id="deckTitle">현재 단어장</span>
+        <span id="progress">0 / 0</span>
+      </div>
+
+      <div id="flashcard" class="flashcard" role="button" tabindex="0" aria-label="플래시카드">
+        <div>
+          <div id="cardText" class="word">카드</div>
+          <div id="cardHint" class="hint">카드를 눌러 뒤집기</div>
+        </div>
+      </div>
+
+      <div class="card-controls">
+        <button id="prevBtn" class="secondary">이전</button>
+        <button id="flipBtn">뒤집기</button>
+        <button id="nextBtn" class="secondary">다음</button>
+        <button id="shuffleBtn" class="secondary">섞기</button>
+      </div>
+
+      <div class="buttons">
+        <button id="knownBtn" class="good">맞힘</button>
+        <button id="wrongBtn" class="bad">틀림 저장</button>
+        <button id="wrongOnlyBtn" class="secondary">틀린 단어만 보기</button>
+        <button id="allCardsBtn" class="secondary">전체 단어 보기</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <label>저장된 단어장</label>
+      <div id="savedList" class="saved-list"></div>
+    </section>
+
+    <section class="panel">
+      <label>오답 단어</label>
+      <div id="wrongBox" class="wrong-box">아직 오답이 없어요.</div>
+      <div class="buttons">
+        <button id="copyWrongBtn" class="secondary">오답 복사</button>
+        <button id="clearWrongBtn" class="danger">오답 비우기</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "vocabFlashcardDecks_v1";
+
+    const deckNameEl = document.getElementById("deckName");
+    const frontModeEl = document.getElementById("frontMode");
+    const wordInputEl = document.getElementById("wordInput");
+    const makeBtn = document.getElementById("makeBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const cardArea = document.getElementById("cardArea");
+    const deckTitle = document.getElementById("deckTitle");
+    const progress = document.getElementById("progress");
+    const flashcard = document.getElementById("flashcard");
+    const cardText = document.getElementById("cardText");
+    const cardHint = document.getElementById("cardHint");
+    const prevBtn = document.getElementById("prevBtn");
+    const flipBtn = document.getElementById("flipBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const shuffleBtn = document.getElementById("shuffleBtn");
+    const knownBtn = document.getElementById("knownBtn");
+    const wrongBtn = document.getElementById("wrongBtn");
+    const wrongOnlyBtn = document.getElementById("wrongOnlyBtn");
+    const allCardsBtn = document.getElementById("allCardsBtn");
+    const savedList = document.getElementById("savedList");
+    const wrongBox = document.getElementById("wrongBox");
+    const copyWrongBtn = document.getElementById("copyWrongBtn");
+    const clearWrongBtn = document.getElementById("clearWrongBtn");
+
+    let currentCards = [];
+    let allCards = [];
+    let wrongCards = [];
+    let currentIndex = 0;
+    let flipped = false;
+    let currentDeckName = "현재 단어장";
+
+    function parseWords(text) {
+      return text
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          let parts;
+          if (line.includes("/")) parts = line.split("/");
+          else if (line.includes("\t")) parts = line.split("\t");
+          else if (line.includes(",")) parts = line.split(",");
+          else return null;
+
+          const en = parts[0]?.trim();
+          const ko = parts.slice(1).join(" ").trim();
+          if (!en || !ko) return null;
+          return { en, ko };
+        })
+        .filter(Boolean);
+    }
+
+    function cardsToText(cards) {
+      return cards.map(card => `${card.en} / ${card.ko}`).join("\n");
+    }
+
+    function loadDecks() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveDecks(decks) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+    }
+
+    function showCards(cards, name = "현재 단어장") {
+      if (!cards.length) {
+        alert("카드로 만들 단어가 없어요. 'apple / 사과' 형식으로 입력해 주세요.");
+        return;
+      }
+
+      allCards = [...cards];
+      currentCards = [...cards];
+      wrongCards = [];
+      currentIndex = 0;
+      flipped = false;
+      currentDeckName = name || "현재 단어장";
+      cardArea.classList.add("active");
+      renderCard();
+      renderWrongBox();
+    }
+
+    function renderCard() {
+      if (!currentCards.length) {
+        cardText.textContent = "카드가 없어요";
+        cardHint.textContent = "전체 단어 보기로 돌아가 주세요";
+        progress.textContent = "0 / 0";
+        return;
+      }
+
+      const card = currentCards[currentIndex];
+      const frontMode = frontModeEl.value;
+      const showEnglish = frontMode === "en" ? !flipped : flipped;
+
+      cardText.textContent = showEnglish ? card.en : card.ko;
+      cardHint.textContent = flipped ? "다시 누르면 앞면" : "카드를 눌러 뒤집기";
+      deckTitle.textContent = currentDeckName;
+      progress.textContent = `${currentIndex + 1} / ${currentCards.length}`;
+    }
+
+    function renderSavedList() {
+      const decks = loadDecks();
+      savedList.innerHTML = "";
+
+      if (!decks.length) {
+        savedList.innerHTML = `<div class="small">저장된 단어장이 없어요.</div>`;
+        return;
+      }
+
+      decks.forEach((deck, index) => {
+        const item = document.createElement("div");
+        item.className = "saved-item";
+
+        const title = document.createElement("div");
+        title.innerHTML = `<div class="saved-title"></div><div class="small">${deck.cards.length}개 단어</div>`;
+        title.querySelector(".saved-title").textContent = deck.name;
+
+        const loadBtn = document.createElement("button");
+        loadBtn.className = "secondary";
+        loadBtn.textContent = "불러오기";
+        loadBtn.addEventListener("click", () => {
+          deckNameEl.value = deck.name;
+          wordInputEl.value = cardsToText(deck.cards);
+          showCards(deck.cards, deck.name);
+        });
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "danger";
+        deleteBtn.textContent = "삭제";
+        deleteBtn.addEventListener("click", () => {
+          if (!confirm(`'${deck.name}' 단어장을 삭제할까요?`)) return;
+          const nextDecks = loadDecks().filter((_, deckIndex) => deckIndex !== index);
+          saveDecks(nextDecks);
+          renderSavedList();
+        });
+
+        item.appendChild(title);
+        item.appendChild(loadBtn);
+        item.appendChild(deleteBtn);
+        savedList.appendChild(item);
+      });
+    }
+
+    function renderWrongBox() {
+      wrongBox.textContent = wrongCards.length ? cardsToText(wrongCards) : "아직 오답이 없어요.";
+    }
+
+    function goNext() {
+      if (!currentCards.length) return;
+      currentIndex = (currentIndex + 1) % currentCards.length;
+      flipped = false;
+      renderCard();
+    }
+
+    function goPrev() {
+      if (!currentCards.length) return;
+      currentIndex = (currentIndex - 1 + currentCards.length) % currentCards.length;
+      flipped = false;
+      renderCard();
+    }
+
+    function shuffleCards() {
+      for (let i = currentCards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [currentCards[i], currentCards[j]] = [currentCards[j], currentCards[i]];
+      }
+      currentIndex = 0;
+      flipped = false;
+      renderCard();
+    }
+
+    makeBtn.addEventListener("click", () => {
+      const cards = parseWords(wordInputEl.value);
+      showCards(cards, deckNameEl.value.trim() || "현재 단어장");
+    });
+
+    saveBtn.addEventListener("click", () => {
+      const name = deckNameEl.value.trim();
+      const cards = parseWords(wordInputEl.value);
+
+      if (!name) {
+        alert("단어장 이름을 입력해 주세요.");
+        return;
+      }
+
+      if (!cards.length) {
+        alert("저장할 단어가 없어요.");
+        return;
+      }
+
+      const decks = loadDecks();
+      const existingIndex = decks.findIndex(deck => deck.name === name);
+      const deckData = { name, cards, updatedAt: new Date().toISOString() };
+
+      if (existingIndex >= 0) {
+        if (!confirm("같은 이름의 단어장이 있어요. 덮어쓸까요?")) return;
+        decks[existingIndex] = deckData;
+      } else {
+        decks.push(deckData);
+      }
+
+      saveDecks(decks);
+      currentDeckName = name;
+      renderSavedList();
+      alert("저장했어요.");
+    });
+
+    clearBtn.addEventListener("click", () => {
+      if (!confirm("입력창을 비울까요?")) return;
+      wordInputEl.value = "";
+      deckNameEl.value = "";
+    });
+
+    flashcard.addEventListener("click", () => {
+      flipped = !flipped;
+      renderCard();
+    });
+
+    flashcard.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        flipped = !flipped;
+        renderCard();
+      }
+    });
+
+    flipBtn.addEventListener("click", () => {
+      flipped = !flipped;
+      renderCard();
+    });
+
+    nextBtn.addEventListener("click", goNext);
+    prevBtn.addEventListener("click", goPrev);
+    shuffleBtn.addEventListener("click", shuffleCards);
+
+    knownBtn.addEventListener("click", () => {
+      goNext();
+    });
+
+    wrongBtn.addEventListener("click", () => {
+      if (!currentCards.length) return;
+      const card = currentCards[currentIndex];
+      const alreadyAdded = wrongCards.some(wrong => wrong.en === card.en && wrong.ko === card.ko);
+      if (!alreadyAdded) wrongCards.push(card);
+      renderWrongBox();
+      goNext();
+    });
+
+    wrongOnlyBtn.addEventListener("click", () => {
+      if (!wrongCards.length) {
+        alert("아직 틀린 단어가 없어요.");
+        return;
+      }
+      currentCards = [...wrongCards];
+      currentIndex = 0;
+      flipped = false;
+      currentDeckName = `${deckNameEl.value.trim() || currentDeckName} - 오답 복습`;
+      renderCard();
+    });
+
+    allCardsBtn.addEventListener("click", () => {
+      if (!allCards.length) return;
+      currentCards = [...allCards];
+      currentIndex = 0;
+      flipped = false;
+      currentDeckName = deckNameEl.value.trim() || "현재 단어장";
+      renderCard();
+    });
+
+    copyWrongBtn.addEventListener("click", async () => {
+      if (!wrongCards.length) {
+        alert("복사할 오답이 없어요.");
+        return;
+      }
+
+      const text = cardsToText(wrongCards);
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("오답을 복사했어요.");
+      } catch {
+        alert("자동 복사에 실패했어요. 오답 목록을 직접 선택해서 복사해 주세요.");
+      }
+    });
+
+    clearWrongBtn.addEventListener("click", () => {
+      if (!confirm("오답 목록을 비울까요?")) return;
+      wrongCards = [];
+      renderWrongBox();
+    });
+
+    document.addEventListener("keydown", event => {
+      if (!cardArea.classList.contains("active")) return;
+      if (event.target.tagName === "TEXTAREA" || event.target.tagName === "INPUT") return;
+
+      if (event.key === "ArrowRight") goNext();
+      if (event.key === "ArrowLeft") goPrev();
+      if (event.key === " ") {
+        event.preventDefault();
+        flipped = !flipped;
+        renderCard();
+      }
+    });
+
+    renderSavedList();
+  </script>
+</body>
+</html>
